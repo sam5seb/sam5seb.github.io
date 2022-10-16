@@ -1,0 +1,10 @@
+WITH user_purchases AS (
+    SELECT
+        user_id,
+        min(created_at) OVER (PARTITION BY user_id)             AS first_user_purchase,
+        min(created_at) OVER (PARTITION BY user_id, product_id) AS first_user_product_purchase
+    FROM marketing_campaign
+)
+SELECT count(DISTINCT user_id) AS count
+FROM user_purchases
+WHERE first_user_purchase != first_user_product_purchase
