@@ -1,0 +1,123 @@
+select* from portfolio_project..covid$
+order by 3,4
+
+--select location, date, total_cases, new_cases, total_deaths, population
+--from portfolio_project..covid_deaths$
+--order by 1,2
+
+-- looking at TOTAL CASES VS TOTAL DEATHS--
+
+select location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as deathpercentage
+from portfolio_project..covid_deaths$
+where location like '%states%'
+order by 1,2
+
+--Looking at TOTAL CASES VS POPULATION--
+
+select location, date, total_cases, population, (total_cases/population)*100 as infected_population
+from portfolio_project..covid_deaths$
+WHERE LOCATION = 'United States'
+order by 1,2
+
+--Looking at MOST INFECTED COUNTRY AS PER POPULATION--
+
+select location, population, MAX(total_cases) as highest_infectedcount, MAX((total_cases/population))*100 as per_infected_population
+from portfolio_project..covid_deaths$
+GROUP BY population, location
+order by per_infected_population desc
+
+--Looking at HIGHEST DEATH COUNT AS PER POPULATION--
+
+select location, population, max(cast(total_deaths as int)) as total_deathcount
+from portfolio_project..covid_deaths$
+where continent is not null
+GROUP BY population, location
+order by total_deathcount desc
+
+--looking at DEATHS AS PER CONTINENT--
+
+select location, population, max(cast(total_deaths as int)) as total_deathcount
+from portfolio_project..covid_deaths$
+where continent is not null
+GROUP BY population, location
+order by total_deathcount desc
+
+--Looking Deaths per CONTINENT--
+
+select continent, max(cast(total_deaths as int)) as total_deathcount
+from portfolio_project..covid_deaths$
+where continent is not null
+GROUP BY continent
+order by total_deathcount desc
+
+
+-- looking at TOTAL CASES VS TOTAL DEATHS
+
+select sum(new_cases) as "total cases", sum(cast(new_deaths as int)) as "total deaths", sum(cast(new_deaths as int))/sum(new_cases)*100 as "Total Death Percent" 
+from portfolio_project..covid_deaths$
+where continent is not null
+order by 1,2
+
+-- Total POPULATION VS VACCINATION
+
+
+WITH PopvsVac (continent, location, date, population, new_vaccinations, RollingPplVaccinated)
+as (
+select d.continent, d.location, d.date, d.population, v.new_vaccinations, 
+	sum(convert(numeric,v.new_vaccinations)) 
+	over (partition by d.location order by d.location, d.date) as RollingPplVaccinated
+	from portfolio_project..covid_deaths$ d
+	join portfolio_project.dbo.covid$ v 
+	on d.location = v.location 
+	and d.date = v.date
+	where d.continent is not null
+
+	)
+	select *, 
+	(RollingPplVaccinated/population)*100 
+	from PopvsVac 
+
+	--CREATING TEMP TABLE-- #PercentPopulationVacinated
+
+DROP TABLE IF EXISTS #PercentPopulationVacinated
+CREATE TABLE #PercentPopulationVacinated
+	(
+	Continent nvarchar(250), 
+	location nvarchar(250), 
+	Date datetime, 
+	Population Numeric, 
+	New_vaccinations Numeric, 
+	RollingPeopleVaccinated Numeric
+	)
+Insert into #PercentPopulationVacinated
+	select d.continent, d.location, d.date, d.population, v.new_vaccinations, 
+	sum(convert(numeric,v.new_vaccinations)) over (partition by d.location order by d.location, d.date) as RollingPplVaccinated
+	from portfolio_project..covid_deaths$ d
+	join portfolio_project.dbo.covid$ v 
+	on d.location = v.location 
+	and d.date = v.date
+	
+select *, (RollingPplVaccinated/population)*100 
+from #PercentPopulationVacinated
+
+	--CREATE VIEWS--
+
+Create View PercentPopulationVacinated as
+	select d.continent, d.location, d.date, d.population, v.new_vaccinations, 
+	sum(convert(numeric,v.new_vaccinations)) 
+	over (partition by d.location order by d.location, d.date) as RollingPplVaccinated
+	from portfolio_project..covid_deaths$ d
+	join portfolio_project.dbo.covid$ v 
+	on d.location = v.location 
+	and d.date = v.date
+	where d.continent is not null
+
+	-- Location vs Total Death Count
+
+Select location, SUM(cast(new_deaths as int)) as TotalDeathCount
+From portfolio_project..covid_deaths$
+--Where location like '%states%'
+Where continent is null 
+and location not in ('World', 'European Union', 'International', 'High income', 'Upper middle income', 'Low income')
+Group by location
+order by TotalDeathCount desc
