@@ -1,0 +1,11 @@
+
+--filter rows needed in analysis
+--rank using ntile split into 50 to get each bucket with 2% incr. 
+--subquery and only get botton 2% or ntile=1 
+
+select restaurant_id , sum from (select restaurant_id ,
+sum(order_total) , ntile(50) OVER(order by SUM(order_total)) from doordash_delivery
+where customer_placed_order_datetime between '2020-05-01' and '2020-05-31'
+group by 1)c
+where ntile = 1
+order by 2 desc
